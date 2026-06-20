@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Wind, Play, Pause, RotateCcw, Volume2, VolumeX, Sparkles, Timer, Coffee, Award } from 'lucide-react';
 
 // Breathing config
@@ -33,83 +33,18 @@ export default function CopingHub() {
   const oscRRef = useRef(null);
   const gainNodeRef = useRef(null);
 
-  // --- breathing effect ---
-  useEffect(() => {
-    let interval = null;
-    if (breathingActive) {
-      interval = setInterval(() => {
-        setBreathSecondsLeft((prev) => {
-          if (prev <= 1) {
-            // Move to next phase
-            const nextIdx = (breathPhaseIndex + 1) % BREATH_PHASES.length;
-            setBreathPhaseIndex(nextIdx);
-            return BREATH_PHASES[nextIdx].duration;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      setBreathPhaseIndex(0);
-      setBreathSecondsLeft(BREATH_PHASES[0].duration);
-    }
-    return () => clearInterval(interval);
-  }, [breathingActive, breathPhaseIndex]);
-
-  // --- timer effect ---
-  useEffect(() => {
-    let interval = null;
-    if (timerActive) {
-      interval = setInterval(() => {
-        setTimerSecondsLeft((prev) => {
-          if (prev <= 1) {
-            // Play a synthesized chime sound
-            playChimeSound();
-            // Switch mode
-            if (timerMode === 'focus') {
-              setTimerMode('break');
-              const breakSecs = 5 * 60;
-              setTimerDuration(breakSecs);
-              return breakSecs;
-            } else {
-              setTimerMode('focus');
-              const focusSecs = 25 * 60;
-              setTimerDuration(focusSecs);
-              return focusSecs;
-            }
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, timerMode]);
-
-  // Clean up audio on unmount
-  useEffect(() => {
-    return () => {
-      stopAudio();
-    };
-  }, []);
-
-  // Sync volume node when volume slider changes
-  useEffect(() => {
-    if (gainNodeRef.current && audioCtxRef.current) {
-      gainNodeRef.current.gain.setValueAtTime(audioVolume, audioCtxRef.current.currentTime);
-    }
-  }, [audioVolume]);
-
   // --- Web Audio Synthesizer Functions ---
 
-  const initAudioContext = () => {
+  const initAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume();
     }
-  };
+  }, []);
 
-  const playChimeSound = () => {
+  const playChimeSound = useCallback(() => {
     try {
       initAudioContext();
       const ctx = audioCtxRef.current;
@@ -128,12 +63,47 @@ export default function CopingHub() {
       
       osc.start();
       osc.stop(ctx.currentTime + 1.3);
-    } catch (e) {
-      console.error('Audio chime error:', e);
+    } catch {
+      // Ignored
     }
-  };
+  }, [initAudioContext]);
 
-  const startAudio = () => {
+  const stopAudio = useCallback(() => {
+    try {
+      if (noiseSourceRef.current) {
+        noiseSourceRef.current.stop();
+        noiseSourceRef.current.disconnect();
+        noiseSourceRef.current = null;
+      }
+      if (lfoRef.current) {
+        lfoRef.current.stop();
+        lfoRef.current.disconnect();
+        lfoRef.current = null;
+      }
+      if (oscLRef.current) {
+        oscLRef.current.stop();
+        oscLRef.current.disconnect();
+        oscLRef.current = null;
+      }
+      if (oscRRef.current) {
+        oscRRef.current.stop();
+        oscRRef.current.disconnect();
+        oscRRef.current = null;
+      }
+      if (gainNodeRef.current) {
+        gainNodeRef.current.disconnect();
+        gainNodeRef.current = null;
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'suspended') {
+        audioCtxRef.current.suspend().catch(() => {});
+      }
+      setAudioActive(false);
+    } catch {
+      // already stopped/silent
+    }
+  }, []);
+
+  const startAudio = useCallback(() => {
     try {
       initAudioContext();
       const ctx = audioCtxRef.current;
@@ -212,42 +182,85 @@ export default function CopingHub() {
       }
 
       setAudioActive(true);
-    } catch (e) {
-      console.error('Failed to play synthesized soundscapes:', e);
+    } catch {
+      // Ignored
     }
-  };
+  }, [initAudioContext, stopAudio, audioTrack, audioVolume]);
 
-  const stopAudio = () => {
-    try {
-      if (noiseSourceRef.current) {
-        noiseSourceRef.current.stop();
-        noiseSourceRef.current.disconnect();
-        noiseSourceRef.current = null;
-      }
-      if (lfoRef.current) {
-        lfoRef.current.stop();
-        lfoRef.current.disconnect();
-        lfoRef.current = null;
-      }
-      if (oscLRef.current) {
-        oscLRef.current.stop();
-        oscLRef.current.disconnect();
-        oscLRef.current = null;
-      }
-      if (oscRRef.current) {
-        oscRRef.current.stop();
-        oscRRef.current.disconnect();
-        oscRRef.current = null;
-      }
-      if (gainNodeRef.current) {
-        gainNodeRef.current.disconnect();
-        gainNodeRef.current = null;
-      }
-      setAudioActive(false);
-    } catch (e) {
-      // already stopped/silent
+  // --- breathing effect ---
+  useEffect(() => {
+    let interval = null;
+    if (breathingActive) {
+      interval = setInterval(() => {
+        setBreathSecondsLeft((prev) => {
+          if (prev <= 1) {
+            // Move to next phase
+            const nextIdx = (breathPhaseIndex + 1) % BREATH_PHASES.length;
+            setTimeout(() => {
+              setBreathPhaseIndex(nextIdx);
+            }, 0);
+            return BREATH_PHASES[nextIdx].duration;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setTimeout(() => {
+        setBreathPhaseIndex(0);
+        setBreathSecondsLeft(BREATH_PHASES[0].duration);
+      }, 0);
     }
-  };
+    return () => clearInterval(interval);
+  }, [breathingActive, breathPhaseIndex]);
+
+  // --- timer effect ---
+  useEffect(() => {
+    let interval = null;
+    if (timerActive) {
+      interval = setInterval(() => {
+        setTimerSecondsLeft((prev) => {
+          if (prev <= 1) {
+            // Play a synthesized chime sound
+            playChimeSound();
+            // Switch mode
+            if (timerMode === 'focus') {
+              setTimeout(() => {
+                setTimerMode('break');
+                setTimerDuration(5 * 60);
+              }, 0);
+              return 5 * 60;
+            } else {
+              setTimeout(() => {
+                setTimerMode('focus');
+                setTimerDuration(25 * 60);
+              }, 0);
+              return 25 * 60;
+            }
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timerMode, playChimeSound]);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      stopAudio();
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
+      }
+    };
+  }, [stopAudio]);
+
+  // Sync volume node when volume slider changes
+  useEffect(() => {
+    if (gainNodeRef.current && audioCtxRef.current) {
+      gainNodeRef.current.gain.setValueAtTime(audioVolume, audioCtxRef.current.currentTime);
+    }
+  }, [audioVolume]);
 
   const handleAudioToggle = () => {
     if (audioActive) {
@@ -294,13 +307,13 @@ export default function CopingHub() {
   };
 
   return (
-    <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: '24px', alignItems: 'start' }} className="coping-grid-layout">
+    <div className="fade-in coping-grid-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: '24px', alignItems: 'start' }}>
       
       {/* Visual Breathing Panel */}
       <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '440px', justifyContent: 'space-between' }}>
         <div style={{ textAlign: 'center', width: '100%' }}>
           <h3 style={{ fontSize: '1.2rem', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Wind size={20} style={{ color: 'var(--emerald)' }} />
+            <Wind size={20} style={{ color: 'var(--emerald)' }} aria-hidden="true" />
             Calming Box Breathing (4-4-4-4)
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
@@ -322,6 +335,9 @@ export default function CopingHub() {
           {/* Pulsing Breathing Sphere */}
           <div 
             className={`breathing-sphere ${getBreathingScaleClass()}`}
+            role="timer"
+            aria-live="assertive"
+            aria-label={breathingActive ? `Breathing phase: ${currentPhase.name}. ${breathSecondsLeft} seconds remaining.` : "Breathing sphere ready"}
             style={{
               width: '130px',
               height: '130px',
@@ -349,7 +365,7 @@ export default function CopingHub() {
 
           {/* Decorative outer waves */}
           {breathingActive && (
-            <div className="breath-wave-pulse"></div>
+            <div className="breath-wave-pulse" aria-hidden="true"></div>
           )}
         </div>
 
@@ -370,16 +386,22 @@ export default function CopingHub() {
         <div style={{ width: '100%', display: 'flex', gap: '10px', marginTop: '16px' }}>
           {breathingActive ? (
             <button 
+              type="button"
               className="btn-rose" 
               onClick={() => setBreathingActive(false)}
+              aria-pressed={breathingActive}
+              aria-label="Stop breathing guide session"
               style={{ width: '100%', justifyContent: 'center' }}
             >
               Stop Session
             </button>
           ) : (
             <button 
+              type="button"
               className="btn-teal" 
               onClick={() => setBreathingActive(true)}
+              aria-pressed={breathingActive}
+              aria-label="Start box breathing guide session"
               style={{ width: '100%', justifyContent: 'center' }}
             >
               Start Breathing Guide
@@ -394,7 +416,7 @@ export default function CopingHub() {
         {/* Web Audio Ambient soundscapes */}
         <div className="glass-card" style={{ padding: '20px' }}>
           <h3 style={{ fontSize: '1.1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Sparkles size={18} style={{ color: 'var(--primary)' }} />
+            <Sparkles size={18} style={{ color: 'var(--primary)' }} aria-hidden="true" />
             Synthesized Ambient Soundscapes
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
@@ -405,15 +427,19 @@ export default function CopingHub() {
             {/* Track Selector */}
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
+                type="button"
                 className={`btn-secondary ${audioTrack === 'ocean' ? 'audio-track-active' : ''}`}
                 onClick={() => handleTrackChange('ocean')}
+                aria-pressed={audioTrack === 'ocean'}
                 style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '8px' }}
               >
                 🌊 Ocean Tide Waves
               </button>
               <button
+                type="button"
                 className={`btn-secondary ${audioTrack === 'binaural' ? 'audio-track-active' : ''}`}
                 onClick={() => handleTrackChange('binaural')}
+                aria-pressed={audioTrack === 'binaural'}
                 style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '8px' }}
               >
                 🧠 Binaural Focus (10Hz)
@@ -421,25 +447,30 @@ export default function CopingHub() {
             </div>
 
             {/* Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <button 
+                type="button"
                 className={audioActive ? "btn-rose" : "btn-primary"} 
                 onClick={handleAudioToggle}
+                aria-pressed={audioActive}
+                aria-label={audioActive ? "Mute ambient audio" : "Play ambient audio"}
                 style={{ flexShrink: 0, padding: '10px 18px', fontSize: '0.85rem' }}
               >
-                {audioActive ? <Pause size={16} /> : <Play size={16} />}
+                {audioActive ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
                 {audioActive ? 'Mute Sounds' : 'Play Ambient'}
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                <VolumeX size={14} style={{ color: 'var(--text-dark)' }} />
+                <VolumeX size={14} style={{ color: 'var(--text-dark)' }} aria-hidden="true" />
                 <input 
                   type="range" 
+                  id="ambient-volume-slider"
                   min="0" 
                   max="1" 
                   step="0.05" 
                   value={audioVolume}
                   onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
+                  aria-label="Ambient audio volume slider"
                   style={{
                     flex: 1,
                     accentColor: 'var(--primary)',
@@ -449,7 +480,7 @@ export default function CopingHub() {
                     cursor: 'pointer'
                   }}
                 />
-                <Volume2 size={14} style={{ color: 'var(--text-muted)' }} />
+                <Volume2 size={14} style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
               </div>
             </div>
           </div>
@@ -458,7 +489,7 @@ export default function CopingHub() {
         {/* Study Focus Timer */}
         <div className="glass-card" style={{ padding: '20px' }}>
           <h3 style={{ fontSize: '1.1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <Timer size={18} style={{ color: 'var(--primary)' }} />
+            <Timer size={18} style={{ color: 'var(--primary)' }} aria-hidden="true" />
             Exam Study Break Timer
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
@@ -470,22 +501,28 @@ export default function CopingHub() {
             {/* Quick config toggles */}
             <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
               <button 
+                type="button"
                 className="btn-secondary" 
                 onClick={() => setTimerConfig('focus', 25)}
+                aria-pressed={timerMode === 'focus' && timerDuration === 25 * 60}
                 style={{ flex: 1, fontSize: '0.75rem', padding: '6px', justifyContent: 'center', border: timerMode === 'focus' && timerDuration === 25*60 ? '1px solid var(--primary)' : '1px solid var(--border-color)' }}
               >
                 📚 25m Focus
               </button>
               <button 
+                type="button"
                 className="btn-secondary" 
                 onClick={() => setTimerConfig('focus', 50)}
+                aria-pressed={timerMode === 'focus' && timerDuration === 50 * 60}
                 style={{ flex: 1, fontSize: '0.75rem', padding: '6px', justifyContent: 'center', border: timerMode === 'focus' && timerDuration === 50*60 ? '1px solid var(--primary)' : '1px solid var(--border-color)' }}
               >
                 📝 50m Focus
               </button>
               <button 
+                type="button"
                 className="btn-secondary" 
                 onClick={() => setTimerConfig('break', 5)}
+                aria-pressed={timerMode === 'break' && timerDuration === 5 * 60}
                 style={{ flex: 1, fontSize: '0.75rem', padding: '6px', justifyContent: 'center', border: timerMode === 'break' && timerDuration === 5*60 ? '1px solid var(--primary)' : '1px solid var(--border-color)' }}
               >
                 ☕ 5m Break
@@ -495,6 +532,9 @@ export default function CopingHub() {
             {/* Timer countdown clock */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
               <div 
+                role="timer"
+                aria-live="assertive"
+                aria-label={`Study Focus Timer: ${formatTime(timerSecondsLeft)} remaining`}
                 style={{ 
                   fontSize: '2.6rem', 
                   fontWeight: '700', 
@@ -506,7 +546,7 @@ export default function CopingHub() {
                 {formatTime(timerSecondsLeft)}
               </div>
               <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {timerMode === 'focus' ? <Award size={10} /> : <Coffee size={10} />}
+                {timerMode === 'focus' ? <Award size={10} aria-hidden="true" /> : <Coffee size={10} aria-hidden="true" />}
                 {timerMode === 'focus' ? 'Focus Session Active' : 'Break Time Active'}
               </div>
             </div>
@@ -514,22 +554,27 @@ export default function CopingHub() {
             {/* Play/Pause/Reset Controls */}
             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
               <button 
+                type="button"
                 onClick={() => setTimerActive(!timerActive)}
                 className={timerMode === 'focus' ? 'btn-teal' : 'btn-primary'}
+                aria-pressed={timerActive}
+                aria-label={timerActive ? "Pause study focus timer" : "Start study focus timer"}
                 style={{ flex: 2, justifyContent: 'center', fontSize: '0.8rem', padding: '8px' }}
               >
-                {timerActive ? <Pause size={14} /> : <Play size={14} />}
+                {timerActive ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
                 {timerActive ? 'Pause Timer' : 'Start Timer'}
               </button>
               <button 
+                type="button"
                 onClick={() => {
                   setTimerActive(false);
                   setTimerSecondsLeft(timerDuration);
                 }}
                 className="btn-secondary"
+                aria-label="Reset study focus timer"
                 style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '8px' }}
               >
-                <RotateCcw size={14} /> Reset
+                <RotateCcw size={14} aria-hidden="true" /> Reset
               </button>
             </div>
 

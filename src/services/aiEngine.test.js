@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { analyzeJournal, analyzeQuickLog, getChatbotResponse, generateWellnessForecast } from './aiEngine.js';
+import { analyzeJournal, analyzeQuickLog, getChatbotResponse, generateWellnessForecast, generateHealthInsights } from './aiEngine.js';
 
 const mockProfile = {
   name: 'Rahul',
@@ -166,4 +166,63 @@ test('generateWellnessForecast: returns neutral stable rhythm fallback', () => {
   assert.strictEqual(result.status, 'neutral');
   assert.ok(result.title.includes('Stable Wellness'));
 });
+
+test('generateHealthInsights: calculates score and generates insights accurately', () => {
+  // Test Case 1: All optimal
+  const health1 = { steps: 8500, sleep: 7.5, heartRate: 68 };
+  const weather1 = { temp: 24, description: 'Sunny', isRainy: false, isOvercast: false };
+  const result1 = generateHealthInsights(health1, weather1);
+  assert.strictEqual(result1.wellnessScore, 100);
+  assert.strictEqual(result1.status, 'optimal');
+  assert.ok(result1.insights.some(i => i.includes('Excellent sleep')));
+  assert.ok(result1.insights.some(i => i.includes('Great activity')));
+
+  // Test Case 2: Poor indicators (sleep debt, low activity, high HR)
+  const health2 = { steps: 1200, sleep: 5.0, heartRate: 90 };
+  const weather2 = { temp: 18, description: 'Overcast', isRainy: true, isOvercast: true };
+  const result2 = generateHealthInsights(health2, weather2, [
+    { stressLevel: 8 }
+  ]);
+  // deductions: sleep < 6 (-20), steps < 3000 (-20), HR > 85 (-15) -> total score 100 - 55 = 45
+  assert.strictEqual(result2.wellnessScore, 45);
+  assert.strictEqual(result2.status, 'critical');
+  assert.ok(result2.insights.some(i => i.includes('Sleep Debt detected')));
+  assert.ok(result2.insights.some(i => i.includes('Activity levels are low')));
+  assert.ok(result2.insights.some(i => i.includes('Elevated resting heart rate')));
+  assert.ok(result2.insights.some(i => i.includes('Warning: The combination')));
+});
+
+test('generateHealthInsights: handles malformed weather and missing health parameters gracefully', () => {
+  const result = generateHealthInsights(null, null);
+  // Default values: sleep=7, steps=0, heartRate=72, weather=null
+  // deductions: steps < 3000 (-20) -> score 80
+  assert.strictEqual(result.wellnessScore, 80);
+  assert.strictEqual(result.status, 'caution');
+});
+
+test('generateHealthInsights: clamps extreme and out-of-bound physiological inputs safely', () => {
+  const extremeHealth = { steps: 2500000, sleep: 36.0, heartRate: 350 };
+  const result = generateHealthInsights(extremeHealth, null);
+  // It handles extreme health inputs without throwing and returns a clamped/adjusted wellness score.
+  assert.ok(result.wellnessScore >= 10 && result.wellnessScore <= 100);
+});
+
+test('generateWellnessForecast: handles journals missing metrics property safely', () => {
+  const journals = [
+    { timestamp: '2026-06-20T08:00:00Z', stressLevel: 5 },
+    { timestamp: '2026-06-21T08:00:00Z', stressLevel: 6 },
+    { timestamp: '2026-06-22T08:00:00Z', stressLevel: 7 }
+  ];
+  const result = generateWellnessForecast(journals);
+  // Should compute slope using fallback stressLevel
+  assert.ok(result.status === 'danger' || result.status === 'neutral');
+});
+
+test('getChatbotResponse: rejects GAD-7 invalid selections with instructions', () => {
+  const chatState = { inAssessment: true, currentQuestionIndex: 0, answers: [] };
+  const response = getChatbotResponse('invalid-option', [], mockProfile, chatState);
+  assert.ok(response.reply[0].includes('select a number from 1 to 4'));
+  assert.strictEqual(response.state.inAssessment, true);
+});
+
 

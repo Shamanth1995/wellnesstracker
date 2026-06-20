@@ -1,10 +1,40 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, Smile, TrendingUp, AlertCircle, Calendar, ChevronRight, ChevronDown, CheckCircle2, Sparkles } from 'lucide-react';
 import { generateWellnessForecast } from '../services/aiEngine';
+
+const MOTIVATIONAL_QUOTES = [
+  "\"The only limit to our realization of tomorrow is our doubts of today.\" — Franklin D. Roosevelt",
+  "\"Believe you can and you're halfway there.\" — Theodore Roosevelt",
+  "\"The secret of getting ahead is getting started.\" — Mark Twain",
+  "\"It always seems impossible until it's done.\" — Nelson Mandela",
+  "\"Our greatest weakness lies in giving up. The most certain way to succeed is always to try just one more time.\" — Thomas A. Edison",
+  "\"Success is not final, failure is not fatal: it is the courage to continue that counts.\" — Winston Churchill",
+  "\"Do not watch the clock; do what it does. Keep going.\" — Sam Levenson",
+  "\"Believe in yourself, take on your challenges, dig deep within yourself to conquer fears.\" — Chantal Sutherland",
+  "\"Hard work beats talent when talent doesn't work hard.\" — Tim Notke",
+  "\"You don't have to be great to start, but you have to start to be great.\" — Zig Ziglar",
+  "\"Your talent determines what you can do. Your motivation determines how much you are willing to do. Your attitude determines how well you do it.\" — Lou Holtz",
+  "\"The difference between ordinary and extraordinary is that little extra.\" — Jimmy Johnson"
+];
 
 export default function Dashboard({ activeProfile, journals, onNavigateToTab }) {
   const [expandedJournalId, setExpandedJournalId] = useState(null);
   const [selectedChartMetric, setSelectedChartMetric] = useState('stress');
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [fadeState, setFadeState] = useState('fade-in');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFadeState('fade-out');
+      const timer = setTimeout(() => {
+        setQuoteIndex((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length);
+        setFadeState('fade-in');
+      }, 500);
+      return () => clearTimeout(timer);
+    }, 6000); // Changes every 6 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Helper: calculate average metric values
   const getAverageMetric = (key) => {
@@ -74,19 +104,19 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
     switch (status) {
       case 'danger':
       case 'warning':
-        return <AlertCircle size={24} style={{ color: iconColor }} />;
+        return <AlertCircle size={24} style={{ color: iconColor }} aria-hidden="true" />;
       case 'positive':
       case 'neutral':
       case 'learning':
       default:
-        return <Sparkles size={24} style={{ color: iconColor }} />;
+        return <Sparkles size={24} style={{ color: iconColor }} aria-hidden="true" />;
     }
   };
 
   const fStyle = getForecastStyle(forecast.status);
 
-  // Keep for backwards compatibility
-  const averageStress = avgStress;
+  // Keep for backwards compatibility (commented out to resolve eslint unused variable check)
+  // const averageStress = avgStress;
 
   const getMetricColor = (metric) => {
     switch (metric) {
@@ -340,6 +370,60 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
               Your {activeProfile?.targetExam} journey is challenging, but you are not alone. Let's look at your stress insights.
             </p>
+            <div 
+              style={{ 
+                marginTop: '12px', 
+                paddingTop: '12px', 
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                minHeight: '80px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: '12px'
+              }}
+            >
+              <p 
+                className={`quote-fade ${fadeState}`} 
+                style={{ 
+                  color: 'var(--amber)', 
+                  fontStyle: 'italic', 
+                  fontSize: '0.88rem',
+                  lineHeight: '1.4',
+                  margin: 0
+                }}
+              >
+                {MOTIVATIONAL_QUOTES[quoteIndex]}
+              </p>
+              <button
+                type="button"
+                onClick={() => onNavigateToTab('journal')}
+                style={{
+                  background: 'var(--primary)',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  fontSize: '0.82rem',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'var(--transition-smooth)',
+                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'var(--primary-hover)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'var(--primary)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                Start Journaling <ChevronRight size={14} aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -495,7 +579,7 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
               color: streak > 0 ? 'var(--emerald)' : 'var(--text-dark)'
             }}
           >
-            <Activity size={24} />
+            <Activity size={24} aria-hidden="true" />
           </div>
           <div style={{ textAlign: 'left' }}>
             <h3 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -522,7 +606,7 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
               color: journals.length > 0 ? 'var(--primary)' : 'var(--text-dark)'
             }}
           >
-            <Smile size={24} />
+            <Smile size={24} aria-hidden="true" />
           </div>
           <div style={{ textAlign: 'left' }}>
             <h3 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -597,7 +681,7 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
             <h3 style={{ fontSize: '1.1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendingUp size={18} style={{ color: getMetricColor(selectedChartMetric) }} />
+              <TrendingUp size={18} style={{ color: getMetricColor(selectedChartMetric) }} aria-hidden="true" />
               Wellness Trends (Last 7 Logs)
             </h3>
             
@@ -634,7 +718,7 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
         {/* Triggers Panel */}
         <div className="glass-card" style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: '1.1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <AlertCircle size={18} style={{ color: 'var(--amber)' }} />
+            <AlertCircle size={18} style={{ color: 'var(--amber)' }} aria-hidden="true" />
             Stress Triggers Detected
           </h3>
 
@@ -680,14 +764,14 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
       {/* Recent History Section */}
       <div className="glass-card" style={{ padding: '24px' }}>
         <h3 style={{ fontSize: '1.1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <Calendar size={18} style={{ color: 'var(--primary)' }} />
+          <Calendar size={18} style={{ color: 'var(--primary)' }} aria-hidden="true" />
           Recent Wellness Logs & AI Analyses
         </h3>
 
         {recentJournals.length === 0 ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
             <p>You haven't logged any thoughts or moods today.</p>
-            <button className="btn-primary" onClick={() => onNavigateToTab('journal')} style={{ fontSize: '0.85rem' }}>
+            <button className="btn-primary" type="button" onClick={() => onNavigateToTab('journal')} style={{ fontSize: '0.85rem' }}>
               Create First Journal
             </button>
           </div>
@@ -709,6 +793,16 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
                   {/* Header summary line */}
                   <div 
                     onClick={() => setExpandedJournalId(isExpanded ? null : j.timestamp)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setExpandedJournalId(isExpanded ? null : j.timestamp);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isExpanded}
+                    aria-label={`${j.isQuickLog ? 'Quick Tag Log' : 'Open Journal'}, created ${new Date(j.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}. Click to toggle AI wellness details.`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -741,7 +835,7 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
                               gap: '4px'
                             }}
                           >
-                            <Activity size={10} /> Stress Score: {j.stressLevel}/10
+                            <Activity size={10} aria-hidden="true" /> Stress Score: {j.stressLevel}/10
                           </span>
                           <span style={{ color: 'var(--text-dark)', fontSize: '0.75rem' }}>|</span>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -750,7 +844,7 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
                         </div>
                       </div>
                     </div>
-                    {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    {isExpanded ? <ChevronDown size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
                   </div>
 
                   {/* Expanded AI Details */}
@@ -810,7 +904,7 @@ export default function Dashboard({ activeProfile, journals, onNavigateToTab }) 
                       {/* Encouragement */}
                       <div style={{ background: 'var(--emerald-glow)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
                         <h4 style={{ fontSize: '0.8rem', color: 'var(--emerald)', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <CheckCircle2 size={12} />
+                          <CheckCircle2 size={12} aria-hidden="true" />
                           Empathetic Note
                         </h4>
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: '1.4' }}>

@@ -433,3 +433,15 @@ label {
   white-space: nowrap;
   border: 0;
 }
+
+/* Quote fading transitions */
+.quote-fade {
+  transition: opacity 0.5s ease-in-out;
+}
+.quote-fade.fade-in {
+  opacity: 1;
+}
+.quote-fade.fade-out {
+  opacity: 0;
+}
+

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BookOpen, Tag, Sparkles, Heart, AlertCircle, Smile, ArrowRight, Music, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpen, Tag, Sparkles, Heart, AlertCircle, ArrowRight, Music } from 'lucide-react';
 import { analyzeJournal, analyzeQuickLog } from '../services/aiEngine';
 
 const MOODS = [
@@ -45,9 +45,11 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
   const [stress, setStress] = useState(5);
   const [motivation, setMotivation] = useState(5);
   const [focus, setFocus] = useState(5);
+  const [validationError, setValidationError] = useState(null);
 
   // Toggle quick tag selection
   const handleTagToggle = (tagName) => {
+    setValidationError(null);
     if (selectedTags.includes(tagName)) {
       setSelectedTags(selectedTags.filter(t => t !== tagName));
     } else {
@@ -61,22 +63,26 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    let result = null;
+    let result;
     const metrics = { energy, stress, motivation, focus };
 
     if (logMode === 'open') {
-      if (!journalText.trim()) return;
+      if (!journalText.trim()) {
+        setValidationError('Please write down your thoughts in the journal box before submitting.');
+        return;
+      }
       result = analyzeJournal(journalText, selectedMood, activeProfile, metrics);
       result.originalText = journalText;
     } else {
       if (selectedTags.length === 0) {
-        alert('Please select at least one tag to check-in.');
+        setValidationError('Please select at least one tag to check-in.');
         return;
       }
       result = analyzeQuickLog(selectedTags, selectedMood, activeProfile, metrics);
       result.originalText = `Quick check-in with tags: ${selectedTags.join(', ')}`;
     }
 
+    setValidationError(null);
     // Pass result to parent (App.jsx) to store in localStorage
     onLogCreated(result);
     setAnalysisResult(result);
@@ -102,7 +108,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
       {/* Logger Panel */}
       <div className="glass-card" style={{ padding: '24px' }}>
         <h2 style={{ fontSize: '1.4rem', color: '#fff', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BookOpen size={20} style={{ color: 'var(--primary)' }} />
+          <BookOpen size={20} style={{ color: 'var(--primary)' }} aria-hidden="true" />
           Daily Stress & Mood Log
         </h2>
 
@@ -111,7 +117,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
           {/* Step 1: Mood Selector */}
           <div>
             <label style={{ marginBottom: '8px', fontSize: '0.95rem' }}>1. How are you feeling right now?</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
+            <div role="group" aria-label="How are you feeling right now?" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
               {MOODS.map(m => {
                 const isSelected = selectedMood === m.name;
                 return (
@@ -119,6 +125,8 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
                     key={m.name}
                     type="button"
                     onClick={() => setSelectedMood(m.name)}
+                    aria-pressed={isSelected}
+                    aria-label={`Mood: ${m.name}`}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -148,12 +156,13 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
               
               {/* Energy */}
               <div className="glass-card" style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 'var(--radius-sm)' }}>
-                <label style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                <label htmlFor="energy-slider" style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                   <span>⚡ Energy Level</span>
                   <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{energy}/10</span>
                 </label>
                 <input 
                   type="range" 
+                  id="energy-slider"
                   min="1" 
                   max="10" 
                   value={energy} 
@@ -168,12 +177,13 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
 
               {/* Stress */}
               <div className="glass-card" style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 'var(--radius-sm)' }}>
-                <label style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                <label htmlFor="stress-slider" style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                   <span>🔥 Stress Level</span>
                   <span style={{ color: 'var(--rose)', fontWeight: 'bold' }}>{stress}/10</span>
                 </label>
                 <input 
                   type="range" 
+                  id="stress-slider"
                   min="1" 
                   max="10" 
                   value={stress} 
@@ -188,12 +198,13 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
 
               {/* Motivation */}
               <div className="glass-card" style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 'var(--radius-sm)' }}>
-                <label style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                <label htmlFor="motivation-slider" style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                   <span>🚀 Motivation</span>
                   <span style={{ color: 'var(--emerald)', fontWeight: 'bold' }}>{motivation}/10</span>
                 </label>
                 <input 
                   type="range" 
+                  id="motivation-slider"
                   min="1" 
                   max="10" 
                   value={motivation} 
@@ -208,12 +219,13 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
 
               {/* Focus */}
               <div className="glass-card" style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 'var(--radius-sm)' }}>
-                <label style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                <label htmlFor="focus-slider" style={{ fontSize: '0.82rem', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                   <span>🎯 Focus Level</span>
                   <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{focus}/10</span>
                 </label>
                 <input 
                   type="range" 
+                  id="focus-slider"
                   min="1" 
                   max="10" 
                   value={focus} 
@@ -236,7 +248,8 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
               <button
                 type="button"
                 className={`btn-secondary ${logMode === 'open' ? 'active-mode' : ''}`}
-                onClick={() => setLogMode('open')}
+                onClick={() => { setLogMode('open'); setValidationError(null); }}
+                aria-pressed={logMode === 'open'}
                 style={{
                   flex: 1,
                   justifyContent: 'center',
@@ -244,12 +257,13 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
                   borderColor: logMode === 'open' ? 'var(--primary)' : 'var(--border-color)'
                 }}
               >
-                <BookOpen size={16} /> Open-Ended Journal
+                <BookOpen size={16} aria-hidden="true" /> Open-Ended Journal
               </button>
               <button
                 type="button"
                 className={`btn-secondary ${logMode === 'quick' ? 'active-mode' : ''}`}
-                onClick={() => setLogMode('quick')}
+                onClick={() => { setLogMode('quick'); setValidationError(null); }}
+                aria-pressed={logMode === 'quick'}
                 style={{
                   flex: 1,
                   justifyContent: 'center',
@@ -257,7 +271,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
                   borderColor: logMode === 'quick' ? 'var(--primary)' : 'var(--border-color)'
                 }}
               >
-                <Tag size={16} /> Quick Tag Check-in
+                <Tag size={16} aria-hidden="true" /> Quick Tag Check-in
               </button>
             </div>
           </div>
@@ -266,7 +280,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
           {logMode === 'open' ? (
             <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '0.95rem' }}>4. Write your thoughts (Open-ended venting)</label>
+                <label htmlFor="journal-textarea" style={{ fontSize: '0.95rem' }}>4. Write your thoughts (Open-ended venting)</label>
                 <button 
                   type="button" 
                   onClick={handleNextPrompt}
@@ -296,18 +310,20 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
                 <strong>Prompt:</strong> {JOURNAL_PROMPTS[promptIndex]}
               </div>
               <textarea
+                id="journal-textarea"
                 value={journalText}
-                onChange={(e) => setJournalText(e.target.value)}
+                onChange={(e) => { setJournalText(e.target.value); setValidationError(null); }}
                 placeholder="What chapter is stressing you? Did you score lower in a mock test? Are parents expecting too much? Spill it out here..."
                 rows={6}
                 required
+                maxLength={2000}
                 style={{ resize: 'vertical' }}
               />
             </div>
           ) : (
             <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={{ fontSize: '0.95rem' }}>4. Select prep & stress tags that match today</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '4px 0' }}>
+              <div role="group" aria-label="Stress and preparation tags" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '4px 0' }}>
                 {QUICK_TAGS.map(t => {
                   const isSelected = selectedTags.includes(t.name);
                   return (
@@ -315,6 +331,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
                       key={t.name}
                       type="button"
                       onClick={() => handleTagToggle(t.name)}
+                      aria-pressed={isSelected}
                       style={{
                         padding: '6px 12px',
                         borderRadius: '20px',
@@ -336,8 +353,30 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
           )}
 
           {/* Submit */}
+          {validationError && (
+            <div 
+              className="glass-card" 
+              role="alert"
+              style={{ 
+                padding: '10px 14px', 
+                borderRadius: 'var(--radius-sm)', 
+                borderLeft: '4px solid var(--rose)',
+                background: 'rgba(225, 29, 72, 0.05)',
+                color: 'var(--text-main)',
+                fontSize: '0.82rem',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <AlertCircle size={14} aria-hidden="true" style={{ color: 'var(--rose)' }} />
+              <span>{validationError}</span>
+            </div>
+          )}
+
           <button type="submit" className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-            <Sparkles size={16} /> Analyze with GenAI Companion
+            <Sparkles size={16} aria-hidden="true" /> Analyze with GenAI Companion
           </button>
         </form>
       </div>
@@ -355,7 +394,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '1.2rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={18} style={{ color: 'var(--primary)' }} />
+              <Sparkles size={18} style={{ color: 'var(--primary)' }} aria-hidden="true" />
               GenAI Stress Analysis
             </h3>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-dark)' }}>Just now</span>
@@ -437,7 +476,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
             {/* AI Encouragement */}
             <div style={{ background: 'var(--emerald-glow)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(13, 148, 136, 0.2)' }}>
               <h4 style={{ fontSize: '0.8rem', color: 'var(--emerald)', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Heart size={14} />
+                <Heart size={14} aria-hidden="true" />
                 Zenbuddy Companion Note
               </h4>
               <p style={{ fontSize: '0.88rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
@@ -448,7 +487,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
             {/* Recommended break */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Music size={18} style={{ color: 'var(--primary)' }} />
+                <Music size={18} style={{ color: 'var(--primary)' }} aria-hidden="true" />
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-dark)', textTransform: 'uppercase' }}>Recommended Break</div>
                   <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{analysisResult.recommendedBreakActivity}</div>
@@ -463,7 +502,7 @@ export default function Journal({ activeProfile, onLogCreated, onGoToDashboard }
               onClick={onGoToDashboard} 
               style={{ width: '100%', justifyContent: 'center', marginTop: '12px' }}
             >
-              Go to Dashboard <ArrowRight size={16} />
+              Go to Dashboard <ArrowRight size={16} aria-hidden="true" />
             </button>
 
           </div>

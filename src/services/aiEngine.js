@@ -102,7 +102,7 @@ export function analyzeJournal(text, mood, profile, metrics = {}) {
     : Math.max(1, Math.min(10, Math.round(baseScore * 10) / 10));
 
   // Determine stress category
-  let stressCategory = 'Moderate';
+  let stressCategory;
   if (stressLevel <= 3) stressCategory = 'Low';
   else if (stressLevel <= 6) stressCategory = 'Moderate';
   else if (stressLevel <= 8.5) stressCategory = 'High';
@@ -111,7 +111,7 @@ export function analyzeJournal(text, mood, profile, metrics = {}) {
   // 3. Generate Coping Strategies & Encouragement
   const copingStrategies = [];
   let recommendedBreakActivity = 'Step away from your desk for 5 minutes and stretch.';
-  let encouragement = '';
+  let encouragement;
 
   // Tailored suggestions based on triggers
   const triggerTypes = detectedTriggers.map(t => t.type);
@@ -260,7 +260,7 @@ export function getChatbotResponse(userMessage, chatHistory, profile, chatState 
   const name = profile?.name || 'Friend';
   const exam = profile?.targetExam || 'exams';
   
-  let reply = [];
+  let reply;
   let newState = { ...chatState };
 
   // --- 1. GAD-7 Assessment Flow ---
@@ -299,8 +299,8 @@ export function getChatbotResponse(userMessage, chatHistory, profile, chatState 
       
       // Calculate score (out of 12)
       const totalScore = newAnswers.reduce((sum, val) => sum + val, 0);
-      let stressDiagnosis = 'Mild Stress';
-      let advice = '';
+      let stressDiagnosis;
+      let advice;
       
       if (totalScore <= 3) {
         stressDiagnosis = 'Low/Mild Academic Stress';
@@ -524,3 +524,94 @@ export function generateWellnessForecast(journals) {
     recommendation: 'Continue your current study cycles. Remember to take regular breaks and log your thoughts daily.'
   };
 }
+
+/**
+ * Generates health and wellness insights from real/simulated health and weather data
+ * @param {object} healthData - { steps, sleep, heartRate }
+ * @param {object} weatherData - { temp, description, isRainy, isOvercast }
+ * @param {Array} journals - Recent journals array
+ */
+export function generateHealthInsights(healthData, weatherData, journals = []) {
+  const steps = healthData?.steps || 0;
+  const sleep = healthData?.sleep || 7;
+  const heartRate = healthData?.heartRate || 72;
+  
+  const temp = weatherData?.temp;
+  const desc = weatherData?.description || 'Clear';
+  const isRainy = !!weatherData?.isRainy;
+  const isOvercast = !!weatherData?.isOvercast;
+
+  let wellnessScore = 100;
+  const insights = [];
+
+  // Sleep analysis
+  if (sleep < 6) {
+    wellnessScore -= 20;
+    insights.push(`Sleep Debt detected (${sleep}h). A sleep-deprived brain retains 40% less information. Prioritize 7-8h of sleep tonight.`);
+  } else if (sleep < 7) {
+    wellnessScore -= 10;
+    insights.push(`Sub-optimal sleep (${sleep}h). Aim for a full 7-8 hours to improve memory consolidation.`);
+  } else {
+    insights.push(`Excellent sleep duration (${sleep}h). This supports clear concentration and peak brain performance.`);
+  }
+
+  // Steps analysis
+  if (steps < 3000) {
+    wellnessScore -= 20;
+    insights.push(`Activity levels are low (${steps} steps). Physical inactivity decreases blood flow to the brain. Take a 10-minute walking break.`);
+  } else if (steps < 6000) {
+    wellnessScore -= 10;
+    insights.push(`Moderate activity levels (${steps} steps). Try to add a quick walk after your next study session.`);
+  } else {
+    insights.push(`Great activity levels (${steps} steps)! Active movement stimulates neural growth factors, boosting learning.`);
+  }
+
+  // Heart rate analysis
+  if (heartRate > 85) {
+    wellnessScore -= 15;
+    insights.push(`Elevated resting heart rate (${heartRate} bpm) suggests elevated physical or mental stress. Try a 2-minute box breathing cycle.`);
+  } else if (heartRate < 60) {
+    insights.push(`Low resting heart rate (${heartRate} bpm) indicates deep physical recovery and cardiovascular efficiency.`);
+  } else {
+    insights.push(`Resting heart rate is stable (${heartRate} bpm), indicating good autonomic balance.`);
+  }
+
+  // Weather insights
+  if (isRainy) {
+    insights.push(`It's rainy outside. Gloomy weather triggers melatonin release, making you feel drowsy. Keep your study area brightly lit.`);
+  } else if (isOvercast) {
+    insights.push(`It's overcast and cloudy. Lower natural light can decrease focus. Step outside for 5 minutes of fresh air to stay alert.`);
+  } else if (desc.toLowerCase().includes('clear') || desc.toLowerCase().includes('sunny')) {
+    insights.push(`The weather is sunny and clear (${temp !== undefined ? temp + '°C' : 'pleasant'}). Consider an outdoor study break to get some natural vitamin D.`);
+  }
+
+  // Correlate with journals/mood
+  const recentJournals = journals.slice(-3);
+  const highStressLogs = recentJournals.filter(j => (j.metrics?.stress || j.stressLevel) >= 7);
+  if (highStressLogs.length > 0 && sleep < 6) {
+    insights.push(`Warning: The combination of high academic stress and sleep debt increases severe exam burnout risk. Prioritize rest over extra study hours today.`);
+  }
+  if (highStressLogs.length > 0 && steps < 3000) {
+    insights.push(`Coping tip: You are experiencing high stress while being inactive. Exercise is a powerful natural stress reducer. Step away for a walk.`);
+  }
+
+  wellnessScore = Math.max(10, Math.min(100, wellnessScore));
+
+  let status = 'optimal';
+  let summary = 'Your physical wellness is in an optimal zone for learning.';
+  if (wellnessScore < 60) {
+    status = 'critical';
+    summary = 'Critical wellness indicators. High fatigue or inactivity is undermining your exam preparation.';
+  } else if (wellnessScore < 85) {
+    status = 'caution';
+    summary = 'Moderate physical fatigue detected. Make small lifestyle adjustments to improve daily focus.';
+  }
+
+  return {
+    wellnessScore,
+    insights,
+    summary,
+    status
+  };
+}
+

@@ -1,22 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, MessageSquarePlus, Activity, User, Heart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LayoutDashboard, BookOpen, MessageSquarePlus, Activity, Heart } from 'lucide-react';
 import ProfileSelector from './components/ProfileSelector';
 import Dashboard from './components/Dashboard';
 import Journal from './components/Journal';
 import Chatbot from './components/Chatbot';
 import CopingHub from './components/CopingHub';
+import HealthSync from './components/HealthSync';
 
 export default function App() {
-  const [profiles, setProfiles] = useState([]);
-  const [activeProfileId, setActiveProfileId] = useState('');
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [journals, setJournals] = useState([]);
-
-  // --- 1. Load Profiles & Init default profile on mount ---
-  useEffect(() => {
+  const [profiles, setProfiles] = useState(() => {
     const savedProfilesStr = localStorage.getItem('mindmirror_profiles');
-    const savedActiveId = localStorage.getItem('mindmirror_active_profile_id');
-
     let loadedProfiles = [];
     if (savedProfilesStr) {
       try {
@@ -37,18 +30,31 @@ export default function App() {
       loadedProfiles = [defaultProfile];
       localStorage.setItem('mindmirror_profiles', JSON.stringify(loadedProfiles));
       localStorage.setItem('mindmirror_active_profile_id', defaultProfile.id);
-      setProfiles(loadedProfiles);
-      setActiveProfileId(defaultProfile.id);
-    } else {
-      setProfiles(loadedProfiles);
-      // Fallback active profile id if none or invalid
-      const activeId = savedActiveId && loadedProfiles.some(p => p.id === savedActiveId)
-        ? savedActiveId
-        : loadedProfiles[0].id;
-      setActiveProfileId(activeId);
-      localStorage.setItem('mindmirror_active_profile_id', activeId);
     }
-  }, []);
+    return loadedProfiles;
+  });
+
+  const [activeProfileId, setActiveProfileId] = useState(() => {
+    const savedActiveId = localStorage.getItem('mindmirror_active_profile_id');
+    const savedProfilesStr = localStorage.getItem('mindmirror_profiles');
+    let loadedProfiles = [];
+    if (savedProfilesStr) {
+      try {
+        loadedProfiles = JSON.parse(savedProfilesStr);
+      } catch {
+        // Ignored
+      }
+    }
+    if (loadedProfiles.length === 0) {
+      return 'prof-default-' + Date.now();
+    }
+    return savedActiveId && loadedProfiles.some(p => p.id === savedActiveId)
+      ? savedActiveId
+      : loadedProfiles[0].id;
+  });
+
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [journals, setJournals] = useState([]);
 
   // --- 2. Load Journals whenever Active Profile ID changes ---
   useEffect(() => {
@@ -63,7 +69,10 @@ export default function App() {
         console.error('Error parsing journals:', e);
       }
     }
-    setJournals(loadedJournals);
+    // Defer state update to avoid cascading renders warning
+    setTimeout(() => {
+      setJournals(loadedJournals);
+    }, 0);
   }, [activeProfileId]);
 
   // --- 3. Profile Management handlers ---
@@ -146,6 +155,13 @@ export default function App() {
         return (
           <CopingHub />
         );
+      case 'health':
+        return (
+          <HealthSync 
+            activeProfile={activeProfile} 
+            journals={journals} 
+          />
+        );
       default:
         return <div>Tab not found</div>;
     }
@@ -157,7 +173,7 @@ export default function App() {
       <header>
         <div className="logo-section">
           <div className="logo-icon">
-            <Heart size={20} style={{ color: '#fff' }} />
+            <Heart size={20} style={{ color: '#fff' }} aria-hidden="true" />
           </div>
           <div>
             <h1>MindMirror</h1>
@@ -181,36 +197,67 @@ export default function App() {
 
       {/* Main Nav Tabs bar */}
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
-        <div className="nav-tabs">
+        <div className="nav-tabs" role="tablist" aria-label="MindMirror Navigation Tabs">
           <button 
+            type="button"
+            role="tab"
+            id="tab-dashboard"
+            aria-selected={activeTab === 'dashboard'}
+            aria-controls="main-tab-panel"
             className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
-            <LayoutDashboard size={16} /> Dashboard
+            <LayoutDashboard size={16} aria-hidden="true" /> Dashboard
           </button>
           <button 
+            type="button"
+            role="tab"
+            id="tab-journal"
+            aria-selected={activeTab === 'journal'}
+            aria-controls="main-tab-panel"
             className={`nav-tab ${activeTab === 'journal' ? 'active' : ''}`}
             onClick={() => setActiveTab('journal')}
           >
-            <BookOpen size={16} /> Daily Journal
+            <BookOpen size={16} aria-hidden="true" /> Daily Journal
           </button>
           <button 
+            type="button"
+            role="tab"
+            id="tab-chat"
+            aria-selected={activeTab === 'chat'}
+            aria-controls="main-tab-panel"
             className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
-            <MessageSquarePlus size={16} /> ZenBuddy Chat
+            <MessageSquarePlus size={16} aria-hidden="true" /> ZenBuddy Chat
           </button>
           <button 
+            type="button"
+            role="tab"
+            id="tab-coping"
+            aria-selected={activeTab === 'coping'}
+            aria-controls="main-tab-panel"
             className={`nav-tab ${activeTab === 'coping' ? 'active' : ''}`}
             onClick={() => setActiveTab('coping')}
           >
-            <Activity size={16} /> Coping Hub
+            <Activity size={16} aria-hidden="true" /> Coping Hub
+          </button>
+          <button 
+            type="button"
+            role="tab"
+            id="tab-health"
+            aria-selected={activeTab === 'health'}
+            aria-controls="main-tab-panel"
+            className={`nav-tab ${activeTab === 'health' ? 'active' : ''}`}
+            onClick={() => setActiveTab('health')}
+          >
+            <Heart size={16} aria-hidden="true" /> Health Sync
           </button>
         </div>
       </div>
 
       {/* Primary Tab View Panel */}
-      <main className="main-content">
+      <main className="main-content" id="main-tab-panel" role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
         {renderTabContent()}
       </main>
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, RefreshCw, AlertTriangle, Heart, Wind, LifeBuoy, UserCheck } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, RefreshCw, AlertTriangle, LifeBuoy } from 'lucide-react';
 import { getChatbotResponse } from '../services/aiEngine';
 
 export default function Chatbot({ activeProfile }) {
@@ -16,19 +16,21 @@ export default function Chatbot({ activeProfile }) {
     const name = activeProfile?.name || 'Friend';
     const exam = activeProfile?.targetExam || 'Competitive Exams';
 
-    setMessages([
-      {
-        id: 'welcome-1',
-        sender: 'zenbuddy',
-        text: [
-          `Hi ${name}! I'm ZenBuddy, your digital wellness companion. 🧘`,
-          `Preparing for the ${exam} is an immense challenge. It is completely normal to feel study anxiety, backlog stress, or burnout.`,
-          `I'm here for you 24/7 to listen without judgement.`
-        ],
-        timestamp: new Date().toISOString()
-      }
-    ]);
-    setChatState({});
+    setTimeout(() => {
+      setMessages([
+        {
+          id: 'welcome-1',
+          sender: 'zenbuddy',
+          text: [
+            `Hi ${name}! I'm ZenBuddy, your digital wellness companion. 🧘`,
+            `Preparing for the ${exam} is an immense challenge. It is completely normal to feel study anxiety, backlog stress, or burnout.`,
+            `I'm here for you 24/7 to listen without judgement.`
+          ],
+          timestamp: new Date().toISOString()
+        }
+      ]);
+      setChatState({});
+    }, 0);
   }, [activeProfile]);
 
   // Scroll to bottom when messages update
@@ -83,7 +85,6 @@ export default function Chatbot({ activeProfile }) {
     setInputVal(actionText);
     // Submit it
     setTimeout(() => {
-      const mockEvent = { preventDefault: () => {} };
       const submitBtn = document.getElementById('chat-submit-btn');
       submitBtn?.click();
     }, 100);
@@ -92,7 +93,6 @@ export default function Chatbot({ activeProfile }) {
   const handleReset = () => {
     if (confirm('Clear this chat conversation?')) {
       const name = activeProfile?.name || 'Friend';
-      const exam = activeProfile?.targetExam || 'Competitive Exams';
       setMessages([
         {
           id: 'welcome-reset',
@@ -109,7 +109,7 @@ export default function Chatbot({ activeProfile }) {
   };
 
   return (
-    <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: showHelplines ? '1fr 300px' : '1fr', gap: '20px', height: 'calc(100vh - 200px)', minHeight: '500px' }} className="chat-layout-grid">
+    <div className="fade-in chat-layout-grid" style={{ display: 'grid', gridTemplateColumns: showHelplines ? '1fr 300px' : '1fr', gap: '20px', height: 'calc(100vh - 200px)', minHeight: '500px' }}>
       
       {/* Main Chat Panel */}
       <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -131,26 +131,31 @@ export default function Chatbot({ activeProfile }) {
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
+              type="button"
               className="btn-secondary" 
               onClick={() => setShowHelplines(!showHelplines)} 
+              aria-expanded={showHelplines}
+              aria-label="Toggle student crisis helplines drawer"
               style={{ padding: '6px 12px', fontSize: '0.8rem', gap: '4px', borderColor: showHelplines ? 'var(--rose)' : 'var(--border-color)' }}
             >
-              <LifeBuoy size={14} style={{ color: showHelplines ? 'var(--rose)' : 'var(--text-muted)' }} />
+              <LifeBuoy size={14} style={{ color: showHelplines ? 'var(--rose)' : 'var(--text-muted)' }} aria-hidden="true" />
               Helplines
             </button>
             <button 
+              type="button"
               className="btn-secondary" 
               onClick={handleReset} 
               style={{ padding: '6px', borderRadius: 'var(--radius-sm)' }}
+              aria-label="Reset chat history"
               title="Reset Chat"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} aria-hidden="true" />
             </button>
           </div>
         </div>
 
         {/* Message History Scroller */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div role="log" aria-live="polite" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {messages.map((m) => {
             const isZen = m.sender === 'zenbuddy';
             return (
@@ -249,15 +254,17 @@ export default function Chatbot({ activeProfile }) {
         <form onSubmit={handleSend} style={{ display: 'flex', padding: '16px', background: 'rgba(0,0,0,0.15)', gap: '10px', borderTop: '1px solid var(--border-color)' }}>
           <input
             type="text"
+            id="chat-message-input"
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             placeholder={chatState.inAssessment ? "Type response number (1, 2, 3 or 4)..." : "Talk about exam backlogs, mock results, study stress..."}
             required
+            aria-label="ZenBuddy chat message input"
             autoComplete="off"
             style={{ flex: 1, padding: '12px 16px' }}
           />
-          <button type="submit" id="chat-submit-btn" className="btn-primary" style={{ padding: '12px 20px' }}>
-            <Send size={16} />
+          <button type="submit" id="chat-submit-btn" className="btn-primary" aria-label="Send message" style={{ padding: '12px 20px' }}>
+            <Send size={16} aria-hidden="true" />
           </button>
         </form>
       </div>
@@ -266,7 +273,7 @@ export default function Chatbot({ activeProfile }) {
       {showHelplines && (
         <div className="glass-card fade-in" style={{ padding: '20px', overflowY: 'auto', border: '1px solid rgba(225,29,72,0.2)', background: 'linear-gradient(180deg, rgba(15,23,42,0.9) 0%, rgba(225,29,72,0.03) 100%)' }}>
           <h3 style={{ fontSize: '1.05rem', color: 'var(--rose)', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '12px' }}>
-            <AlertTriangle size={18} />
+            <AlertTriangle size={18} aria-hidden="true" />
             Student Help & Crisis Resources
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.4', marginBottom: '16px', textAlign: 'left' }}>
@@ -297,6 +304,7 @@ export default function Chatbot({ activeProfile }) {
           </div>
           
           <button 
+            type="button"
             className="btn-secondary" 
             onClick={() => setShowHelplines(false)}
             style={{ width: '100%', marginTop: '16px', padding: '8px', fontSize: '0.8rem', justifyContent: 'center' }}

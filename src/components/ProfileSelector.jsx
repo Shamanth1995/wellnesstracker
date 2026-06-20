@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Plus, Check, Trash2, ChevronDown, Award } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Check, Trash2, ChevronDown } from 'lucide-react';
 
 const AVATARS = ['🧠', '🧘', '📚', '🚀', '🌟', '🍀', '🌊', '🎨', '🏆', '🦁'];
 const EXAMS = [
@@ -20,12 +20,26 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
   const [newExam, setNewExam] = useState(EXAMS[0]);
   const [newAvatar, setNewAvatar] = useState(AVATARS[0]);
 
+  // Escape key listener to close menu
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!newName.trim()) return;
+    // Security sanitization: strip non-alphanumeric/spaces
+    const sanitizedName = newName.replace(/[^a-zA-Z0-9 ]/g, '').trim();
+    if (!sanitizedName) return;
 
     onCreateProfile({
-      name: newName.trim(),
+      name: sanitizedName,
       targetExam: newExam,
       avatar: newAvatar
     });
@@ -41,11 +55,23 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
     }
   };
 
+  const handleKeyDown = (e, profileId) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelectProfile(profileId);
+      setIsOpen(false);
+    }
+  };
+
   return (
     <div className="profile-selector-container" style={{ position: 'relative' }}>
       <button 
+        type="button"
         className="btn-secondary"
         onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-label="Profile options"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -59,7 +85,7 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
           <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{activeProfile?.name || 'Create Profile'}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{activeProfile?.targetExam || 'No Exam Selected'}</div>
         </div>
-        <ChevronDown size={16} style={{ marginLeft: '4px', opacity: 0.7 }} />
+        <ChevronDown size={16} style={{ marginLeft: '4px', opacity: 0.7 }} aria-hidden="true" />
       </button>
 
       {isOpen && (
@@ -90,6 +116,10 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
                       onSelectProfile(p.id);
                       setIsOpen(false);
                     }}
+                    onKeyDown={(e) => handleKeyDown(e, p.id)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Select student profile for ${p.name}`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -112,9 +142,10 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {p.id === activeProfile?.id && <Check size={16} style={{ color: 'var(--primary)' }} />}
+                      {p.id === activeProfile?.id && <Check size={16} style={{ color: 'var(--primary)' }} aria-hidden="true" />}
                       {profiles.length > 1 && (
                         <button 
+                          type="button"
                           onClick={(e) => handleDelete(p.id, e)}
                           style={{
                             background: 'transparent',
@@ -125,9 +156,10 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
                             borderRadius: '4px'
                           }}
                           className="delete-profile-btn"
+                          aria-label={`Delete profile for ${p.name}`}
                           title="Delete Profile"
                         >
-                          <Trash2 size={14} className="hover-danger" style={{ transition: 'color 0.2s' }} />
+                          <Trash2 size={14} className="hover-danger" style={{ transition: 'color 0.2s' }} aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -136,11 +168,12 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
               </div>
 
               <button 
+                type="button"
                 className="btn-secondary" 
                 onClick={() => setIsAdding(true)}
                 style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem', padding: '8px' }}
               >
-                <Plus size={14} /> Add New Profile
+                <Plus size={14} aria-hidden="true" /> Add New Profile
               </button>
             </>
           ) : (
@@ -150,21 +183,24 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
               </h3>
               
               <div>
-                <label>Name</label>
+                <label htmlFor="new-profile-name">Name</label>
                 <input 
                   type="text" 
+                  id="new-profile-name"
                   value={newName} 
                   onChange={(e) => setNewName(e.target.value)} 
                   placeholder="e.g. Aarav Patel" 
                   required 
+                  maxLength={25}
                   autoFocus
                   style={{ padding: '8px 12px', fontSize: '0.85rem' }}
                 />
               </div>
 
               <div>
-                <label>Target Exam</label>
+                <label htmlFor="new-profile-exam">Target Exam</label>
                 <select 
+                  id="new-profile-exam"
                   value={newExam} 
                   onChange={(e) => setNewExam(e.target.value)}
                   style={{ padding: '8px 12px', fontSize: '0.85rem' }}
@@ -176,13 +212,14 @@ export default function ProfileSelector({ profiles, activeProfile, onSelectProfi
               </div>
 
               <div>
-                <label>Select Companion Avatar</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                <label id="avatar-group-label">Select Companion Avatar</label>
+                <div role="group" aria-labelledby="avatar-group-label" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
                   {AVATARS.map(avatar => (
                     <button
                       key={avatar}
                       type="button"
                       onClick={() => setNewAvatar(avatar)}
+                      aria-label={`Select companion avatar ${avatar}`}
                       style={{
                         fontSize: '1.4rem',
                         padding: '6px 0',
